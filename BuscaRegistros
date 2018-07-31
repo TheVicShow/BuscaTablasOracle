@@ -6,9 +6,9 @@ DECLARE
    v_cont_err        INTEGER DEFAULT 0;
    v_tot_vue         INTEGER DEFAULT 0;
 
-   v_propietario     VARCHAR2 (255) := 'XXGEC';
-   v_busqueda        VARCHAR2 (4000) := 'CHOMEs';
-   v_tipo_dato       VARCHAR2 (255) := 'VARCHAR2';
+   v_propietario     VARCHAR2 (255) := 'OWNER';
+   v_busqueda        VARCHAR2 (4000) := 'PALABRA A BUSCAR';
+   v_tipo_dato       VARCHAR2 (255) := 'TIPO DE DATO';
    v_registro        VARCHAR (255);
    v_columnas        CLOB := '';
    v_query_sql       CLOB := '';
