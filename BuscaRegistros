@@ -1,0 +1,92 @@
+SET SERVEROUTPUT ON SIZE 100000
+
+DECLARE
+   v_cuantos_find    INTEGER;
+   v_contador        INTEGER;
+   v_cont_err        INTEGER DEFAULT 0;
+   v_tot_vue         INTEGER DEFAULT 0;
+
+   v_propietario     VARCHAR2 (255) := 'XXGEC';
+   v_busqueda        VARCHAR2 (4000) := 'CHOMEs';
+   v_tipo_dato       VARCHAR2 (255) := 'VARCHAR2';
+   v_registro        VARCHAR (255);
+   v_columnas        CLOB := '';
+   v_query_sql       CLOB := '';
+
+BEGIN
+   FOR v_todas_tablas
+      IN (  SELECT OWNER, TABLE_NAME
+              FROM all_tables
+             WHERE OWNER = v_propietario
+               AND TABLE_NAME IN (SELECT TABLE_NAME
+                                    FROM all_tab_columns
+                                   WHERE OWNER = all_tables.OWNER
+                                     AND DATA_TYPE LIKE '%'|| UPPER (v_tipo_dato) ||'%')
+          ORDER BY TABLE_NAME)
+   LOOP
+
+      v_contador := 0;
+      v_query_sql := '';
+      v_columnas := '';
+
+      FOR v_todas_columnas
+         IN (SELECT COLUMN_NAME, TABLE_NAME
+               FROM all_tab_columns
+              WHERE OWNER = v_propietario
+                AND TABLE_NAME = v_todas_tablas.TABLE_NAME
+                AND DATA_TYPE LIKE '%' || UPPER (v_tipo_dato) || '%')
+      LOOP
+      
+         IF v_contador > 0
+         THEN
+            v_query_sql := v_query_sql || ' or ';
+            v_columnas := v_columnas || ', ';
+         END IF;
+
+         IF v_todas_columnas.COLUMN_NAME IS NOT NULL
+         THEN
+            v_columnas := v_columnas || v_todas_columnas.COLUMN_NAME;--Mejorar, ya que muestra todas las columnas no la especifica
+            v_query_sql := v_query_sql || 'UPPER(' || v_todas_columnas.COLUMN_NAME || ') = '''|| UPPER (v_busqueda)||'''';
+            v_contador := v_contador + 1;            
+         END IF;
+
+      END LOOP;
+
+      IF v_query_sql IS NOT NULL
+      THEN
+         v_query_sql := 'SELECT COUNT(*) FROM ' || v_propietario || '.' || v_todas_tablas.TABLE_NAME || ' WHERE ' || v_query_sql;
+         v_tot_vue := v_tot_vue +1;
+      END IF;
+
+      EXECUTE IMMEDIATE v_query_sql 
+      INTO v_cuantos_find;
+
+      IF v_cuantos_find > 0
+      THEN
+        IF v_cuantos_find < 2 
+          THEN v_registro := ' se encontró ' || v_cuantos_find || ' registro'; 
+          ELSE v_registro := ' se encontraron ' || v_cuantos_find || ' registros'; 
+        END IF;
+
+        DBMS_OUTPUT.put_line('La Consulta es: '|| v_query_sql);
+        DBMS_OUTPUT.put_line('El Propietario ' || v_todas_tablas.OWNER || ', en la tabla ' || v_todas_tablas.TABLE_NAME || v_registro);
+        DBMS_OUTPUT.put_line('----------------------------------------------------------------');
+      ELSE
+         v_cont_err := v_cont_err+1;
+      END IF;
+
+   END LOOP;
+
+   IF v_cont_err = v_tot_vue THEN
+        DBMS_OUTPUT.put_line ('No se encontraron registros, por favor revisa la palabra o frase a buscar');            
+   END IF;
+
+EXCEPTION
+   WHEN NO_DATA_FOUND
+   THEN
+      DBMS_OUTPUT.put_line ('No se encontraron registros, por favor revisa la palabra o frase a buscar');
+   WHEN OTHERS
+   THEN
+      DBMS_OUTPUT.put_line ('Error al ejecutar la sentencia WHERE: '|| DBMS_LOB.SUBSTR (v_query_sql, 255));
+END;
+/
