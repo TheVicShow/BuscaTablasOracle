@@ -1,17 +1,25 @@
 SET SERVEROUTPUT ON SIZE 100000
 
+CLEAR SCREEN
+
 DECLARE
-   v_cuantos_find    INTEGER;
-   v_contador        INTEGER;
-   v_cont_err        INTEGER DEFAULT 0;
-   v_tot_vue         INTEGER DEFAULT 0;
+
+   i_cuantos_find    INTEGER;
+   i_contador        INTEGER;
+   i_cont_err        INTEGER DEFAULT 0;
+   i_tot_vue         INTEGER DEFAULT 0;
+
+   b_show_columnas   BOOLEAN DEFAULT true;--Bandera para mostrar o no las columnas
 
    v_propietario     VARCHAR2 (255) := 'OWNER';
    v_busqueda        VARCHAR2 (4000) := 'PALABRA A BUSCAR';
    v_tipo_dato       VARCHAR2 (255) := 'TIPO DE DATO';
    v_registro        VARCHAR (255);
-   v_columnas        CLOB := '';
-   v_query_sql       CLOB := '';
+   v_tip             VARCHAR (255) := ' de la busqueda '''|| v_busqueda ||''', ejecute el query anterior para ver resultados';
+
+   c_columnas        CLOB := '';
+   c_query_sql       CLOB := '';
+   c_exec_sql        CLOB := '';
 
 BEGIN
    FOR v_todas_tablas
@@ -25,9 +33,10 @@ BEGIN
           ORDER BY TABLE_NAME)
    LOOP
 
-      v_contador := 0;
-      v_query_sql := '';
-      v_columnas := '';
+      i_contador := 0;
+      c_query_sql := '';
+      c_exec_sql := '';
+      c_columnas := '';
 
       FOR v_todas_columnas
          IN (SELECT COLUMN_NAME, TABLE_NAME
@@ -37,47 +46,54 @@ BEGIN
                 AND DATA_TYPE LIKE '%' || UPPER (v_tipo_dato) || '%')
       LOOP
       
-         IF v_contador > 0
+         IF i_contador > 0
          THEN
-            v_query_sql := v_query_sql || ' or ';
-            v_columnas := v_columnas || ', ';
+            c_query_sql := c_query_sql || ' OR ';
+            c_columnas := c_columnas || ', ';
          END IF;
 
          IF v_todas_columnas.COLUMN_NAME IS NOT NULL
          THEN
-            v_columnas := v_columnas || v_todas_columnas.COLUMN_NAME;--Mejorar, ya que muestra todas las columnas no la especifica
-            v_query_sql := v_query_sql || 'UPPER(' || v_todas_columnas.COLUMN_NAME || ') = '''|| UPPER (v_busqueda)||'''';
-            v_contador := v_contador + 1;            
+            c_columnas := c_columnas || v_todas_columnas.COLUMN_NAME;
+            --Obtener el query para ejecutar dentro de la consulta
+            c_query_sql := c_query_sql || 'UPPER(' || v_todas_columnas.COLUMN_NAME || ') LIKE ''%'|| UPPER (v_busqueda)||'%''';
+            i_contador := i_contador + 1;            
          END IF;
 
       END LOOP;
 
-      IF v_query_sql IS NOT NULL
+      IF c_query_sql IS NOT NULL
       THEN
-         v_query_sql := 'SELECT COUNT(*) FROM ' || v_propietario || '.' || v_todas_tablas.TABLE_NAME || ' WHERE ' || v_query_sql;
-         v_tot_vue := v_tot_vue +1;
+         --Estructurar Querys para mostrar
+         c_exec_sql := 'SELECT * FROM ' || v_propietario || '.' || v_todas_tablas.TABLE_NAME || ' WHERE ' || c_query_sql || ';';
+         c_query_sql := 'SELECT COUNT(*) FROM ' || v_propietario || '.' || v_todas_tablas.TABLE_NAME || ' WHERE ' || c_query_sql;
+         i_tot_vue := i_tot_vue +1;
       END IF;
 
-      EXECUTE IMMEDIATE v_query_sql 
-      INTO v_cuantos_find;
+      EXECUTE IMMEDIATE c_query_sql 
+      INTO i_cuantos_find;
 
-      IF v_cuantos_find > 0
+      IF i_cuantos_find > 0
       THEN
-        IF v_cuantos_find < 2 
-          THEN v_registro := ' se encontró ' || v_cuantos_find || ' registro'; 
-          ELSE v_registro := ' se encontraron ' || v_cuantos_find || ' registros'; 
+        IF i_cuantos_find < 2 
+          THEN v_registro := ' se encontró ' || i_cuantos_find || ' registro' || v_tip; 
+          ELSE v_registro := ' se encontraron ' || i_cuantos_find || ' registros' || v_tip; 
         END IF;
 
-        DBMS_OUTPUT.put_line('La Consulta es: '|| v_query_sql);
+        DBMS_OUTPUT.put_line('La Consulta es: '|| c_exec_sql);
         DBMS_OUTPUT.put_line('El Propietario ' || v_todas_tablas.OWNER || ', en la tabla ' || v_todas_tablas.TABLE_NAME || v_registro);
+        IF b_show_columnas = TRUE
+          THEN
+            DBMS_OUTPUT.put_line('Las columnas de la tabla donde se busco son: ' || c_columnas);
+        END IF;            
         DBMS_OUTPUT.put_line('----------------------------------------------------------------');
       ELSE
-         v_cont_err := v_cont_err+1;
+         i_cont_err := i_cont_err+1;
       END IF;
 
    END LOOP;
 
-   IF v_cont_err = v_tot_vue THEN
+   IF i_cont_err = i_tot_vue THEN
         DBMS_OUTPUT.put_line ('No se encontraron registros, por favor revisa la palabra o frase a buscar');            
    END IF;
 
@@ -87,6 +103,6 @@ EXCEPTION
       DBMS_OUTPUT.put_line ('No se encontraron registros, por favor revisa la palabra o frase a buscar');
    WHEN OTHERS
    THEN
-      DBMS_OUTPUT.put_line ('Error al ejecutar la sentencia WHERE: '|| DBMS_LOB.SUBSTR (v_query_sql, 255));
+      DBMS_OUTPUT.put_line ('Error al ejecutar la sentencia WHERE: '|| DBMS_LOB.SUBSTR (c_query_sql, 255));
 END;
 /
